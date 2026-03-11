@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Generar Íconos - Boca Entradas Bot</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background: #f0f0f0;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #004d98;
+      margin-bottom: 20px;
+    }
+    button {
+      background: #004d98;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+      margin: 10px 5px;
+    }
+    button:hover {
+      background: #0066cc;
+    }
+    .canvas-container {
+      margin: 20px 0;
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+    canvas {
+      border: 2px solid #ddd;
+      border-radius: 5px;
+    }
+    .instructions {
+      background: #e8f4f8;
+      padding: 15px;
+      border-radius: 5px;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>⚽ Generador de Íconos - Boca Entradas Bot</h1>
+    <p>Haz clic en los botones para generar los íconos. Luego descárgalos manualmente.</p>
+    
+    <button onclick="generateIcons()">Generar Todos los Íconos</button>
+    
+    <div class="canvas-container">
+      <div>
+        <h3>16x16</h3>
+        <canvas id="icon16" width="16" height="16"></canvas>
+        <br>
+        <button onclick="downloadIcon('icon16', 16)">Descargar</button>
+      </div>
+      <div>
+        <h3>48x48</h3>
+        <canvas id="icon48" width="48" height="48"></canvas>
+        <br>
+        <button onclick="downloadIcon('icon48', 48)">Descargar</button>
+      </div>
+      <div>
+        <h3>128x128</h3>
+        <canvas id="icon128" width="128" height="128"></canvas>
+        <br>
+        <button onclick="downloadIcon('icon128', 128)">Descargar</button>
+      </div>
+    </div>
+    
+    <div class="instructions">
+      <h3>📋 Instrucciones:</h3>
+      <ol>
+        <li>Haz clic en "Generar Todos los Íconos"</li>
+        <li>Descarga cada ícono con su botón correspondiente</li>
+        <li>Guarda los archivos como <code>icon16.png</code>, <code>icon48.png</code> y <code>icon128.png</code></li>
+        <li>Colócalos en la carpeta <code>icons/</code> del proyecto</li>
+      </ol>
+    </div>
+  </div>
+
+  <script>
+    function drawIcon(canvas, size) {
+      const ctx = canvas.getContext('2d');
+      
+      // Fondo azul de Boca
+      const gradient = ctx.createLinearGradient(0, 0, size, size);
+      gradient.addColorStop(0, '#004d98');
+      gradient.addColorStop(1, '#0066cc');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, size, size);
+      
+      // Dibujar pelota de fútbol
+      const centerX = size / 2;
+      const centerY = size / 2;
+      const radius = size * 0.35;
+      
+      // Círculo blanco
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Líneas del balón (pentágono y hexágonos)
+      ctx.strokeStyle = '#333333';
+      ctx.lineWidth = size * 0.02;
+      
+      // Líneas simples para simular un balón
+      if (size >= 48) {
+        // Pentágono central
+        ctx.beginPath();
+        for (let i = 0; i < 5; i++) {
+          const angle = (Math.PI * 2 * i) / 5 - Math.PI / 2;
+          const x = centerX + radius * 0.4 * Math.cos(angle);
+          const y = centerY + radius * 0.4 * Math.sin(angle);
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        ctx.stroke();
+        
+        // Líneas radiales
+        for (let i = 0; i < 5; i++) {
+          const angle = (Math.PI * 2 * i) / 5 - Math.PI / 2;
+          const startX = centerX + radius * 0.4 * Math.cos(angle);
+          const startY = centerY + radius * 0.4 * Math.sin(angle);
+          const endX = centerX + radius * 0.85 * Math.cos(angle);
+          const endY = centerY + radius * 0.85 * Math.sin(angle);
+          ctx.beginPath();
+          ctx.moveTo(startX, startY);
+          ctx.lineTo(endX, endY);
+          ctx.stroke();
+        }
+      } else {
+        // Para íconos pequeños, solo un círculo
+        ctx.fillStyle = '#333333';
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius * 0.3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    function generateIcons() {
+      drawIcon(document.getElementById('icon16'), 16);
+      drawIcon(document.getElementById('icon48'), 48);
+      drawIcon(document.getElementById('icon128'), 128);
+    }
+
+    function downloadIcon(canvasId, size) {
+      const canvas = document.getElementById(canvasId);
+      const link = document.createElement('a');
+      link.download = `icon${size}.png`;
+      link.href = canvas.toDataURL();
+      link.click();
+    }
+
+    // Generar automáticamente al cargar
+    window.onload = function() {
+      generateIcons();
+    };
+  </script>
+</body>
+</html>
+

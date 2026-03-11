@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "Boca Entradas Bot",
+  "version": "1.0.0",
+  "description": "Bot para monitorear y reservar entradas en bocasocios.bocajuniors.com.ar",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://bocasocios.bocajuniors.com.ar/*"
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://bocasocios.bocajuniors.com.ar/*"],
+      "js": ["content-hybrid.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  }
+}

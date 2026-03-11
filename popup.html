@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Boca Entradas Bot</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 12px;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #020817;
+      color: #e5e7eb;
+      min-width: 260px;
+    }
+    .card {
+      background: radial-gradient(circle at top left, #0f172a, #020817 55%);
+      border-radius: 12px;
+      padding: 12px 14px 14px;
+      box-shadow: 0 18px 45px rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .title {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      color: #bfdbfe;
+    }
+    .pill {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 999px;
+      background: rgba(56, 189, 248, 0.1);
+      color: #7dd3fc;
+      border: 1px solid rgba(56, 189, 248, 0.4);
+    }
+    .status {
+      font-size: 12px;
+      margin-bottom: 8px;
+      padding: 6px 8px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .status span.icon {
+      font-size: 14px;
+    }
+    .status.inactive {
+      background: rgba(15, 23, 42, 0.9);
+      color: #9ca3af;
+      border: 1px dashed rgba(75, 85, 99, 0.8);
+    }
+    .status.active {
+      background: rgba(8, 47, 73, 0.95);
+      color: #e0f2fe;
+      border: 1px solid rgba(56, 189, 248, 0.8);
+    }
+    .status.success {
+      background: rgba(22, 101, 52, 0.95);
+      color: #bbf7d0;
+      border: 1px solid rgba(74, 222, 128, 0.8);
+    }
+    .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    label {
+      font-size: 11px;
+      color: #9ca3af;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    input[type="text"] {
+      width: 140px;
+      padding: 4px 6px;
+      border-radius: 6px;
+      border: 1px solid rgba(55, 65, 81, 0.9);
+      background: rgba(15, 23, 42, 0.9);
+      color: #e5e7eb;
+      font-size: 12px;
+    }
+    input[type="text"]:focus {
+      outline: none;
+      border-color: rgba(59, 130, 246, 0.9);
+      box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.6);
+    }
+    input[type="number"] {
+      width: 72px;
+      padding: 4px 6px;
+      border-radius: 6px;
+      border: 1px solid rgba(55, 65, 81, 0.9);
+      background: rgba(15, 23, 42, 0.9);
+      color: #e5e7eb;
+      font-size: 12px;
+    }
+    input[type="number"]:focus {
+      outline: none;
+      border-color: rgba(59, 130, 246, 0.9);
+      box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.6);
+    }
+    .checkbox {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: #9ca3af;
+      cursor: pointer;
+    }
+    .checkbox input {
+      accent-color: #2563eb;
+      width: 13px;
+      height: 13px;
+    }
+    .stats {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: #6b7280;
+      margin-top: 4px;
+    }
+    .stats span.value {
+      color: #e5e7eb;
+      font-weight: 500;
+    }
+    .sectors-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      max-height: 96px;
+      overflow-y: auto;
+      padding: 4px 2px 2px;
+    }
+    .sector-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 6px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(55, 65, 81, 0.9);
+      font-size: 10px;
+      color: #e5e7eb;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .sector-pill input {
+      width: 11px;
+      height: 11px;
+      accent-color: #22c55e;
+    }
+    .sectors-empty {
+      font-size: 10px;
+      color: #6b7280;
+      padding-top: 2px;
+    }
+    .buttons {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    button {
+      flex: 1;
+      border-radius: 999px;
+      padding: 7px 0;
+      border: none;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    #startBtn {
+      background: linear-gradient(135deg, #22c55e, #16a34a);
+      color: #022c22;
+      box-shadow: 0 8px 18px rgba(34, 197, 94, 0.45);
+    }
+    #startBtn:hover {
+      filter: brightness(1.05);
+      transform: translateY(-0.5px);
+      box-shadow: 0 10px 24px rgba(34, 197, 94, 0.6);
+    }
+    #stopBtn {
+      background: rgba(15, 23, 42, 0.95);
+      color: #fecaca;
+      border: 1px solid rgba(248, 113, 113, 0.8);
+      display: none;
+    }
+    #stopBtn:hover {
+      background: rgba(30, 64, 175, 0.95);
+    }
+    .hint {
+      margin-top: 8px;
+      font-size: 10px;
+      color: #6b7280;
+      text-align: right;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="header">
+      <div class="title">Boca Entradas Bot</div>
+      <div class="pill">Live DOM Scanner</div>
+    </div>
+
+    <div id="status" class="status inactive">
+      <span class="icon">⏸</span>
+      <span>Detenido</span>
+    </div>
+
+    <div class="row">
+      <label>
+        Intervalo de chequeo
+        <span style="font-size:10px;color:#6b7280;">(segundos, recomendado 0.1–0.5)</span>
+      </label>
+      <input id="refreshInterval" type="number" step="0.1" min="0.05" value="0.5" />
+    </div>
+
+    <div class="row" style="flex-direction:column; align-items:flex-start; gap:4px; margin-bottom:6px;">
+      <label>
+        Sectores objetivo (opcional)
+        <span style="font-size:10px;color:#6b7280;">Marca los códigos de sector a monitorear</span>
+      </label>
+      <div id="sectorsContainer" class="sectors-list"></div>
+      <div id="sectorsEmpty" class="sectors-empty" style="display:none;">
+        Abre la página de plateas para ver los sectores disponibles.
+      </div>
+    </div>
+
+    <div class="row" style="margin-bottom:4px;">
+      <label class="checkbox">
+        <input id="autoRefresh" type="checkbox" />
+        <span>Refrescar página de sectores automáticamente</span>
+      </label>
+    </div>
+
+    <div class="stats">
+      <span>Checks: <span id="refreshCount" class="value">0</span></span>
+      <span>Último check: <span id="lastCheck" class="value">–</span></span>
+    </div>
+
+    <div class="buttons">
+      <button id="startBtn">Iniciar monitor</button>
+      <button id="stopBtn">Detener</button>
+    </div>
+
+    <div class="hint">
+      Navega primero a <strong>bocasocios.bocajuniors.com.ar</strong> antes de iniciar.
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
+
