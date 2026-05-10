@@ -77,20 +77,14 @@ function startMonitoring(interval, section, autoRefresh) {
   }
   
   console.log('🚀 Bot HÍBRIDO activado');
+  persistBotState();
   checkForTicketsRAF();
-  
+
   if (autoRefreshPage) {
     pageRefreshInterval = setInterval(() => {
       const url = window.location.href.toLowerCase();
       if (url.includes('/plateas') && !url.includes('/seat') && !url.includes('/reserva')) {
-        sessionStorage.setItem('bocaBotActive', 'true');
-        sessionStorage.setItem('bocaBotSettings', JSON.stringify({
-          interval: intervalMs, 
-          autoRefresh: autoRefreshPage,
-          refreshCount, 
-          step: 'sector',
-          targetSections
-        }));
+        persistBotState();
         window.location.reload();
       } else {
         clearInterval(pageRefreshInterval);
@@ -98,6 +92,17 @@ function startMonitoring(interval, section, autoRefresh) {
       }
     }, intervalMs);
   }
+}
+
+function persistBotState() {
+  sessionStorage.setItem('bocaBotActive', 'true');
+  sessionStorage.setItem('bocaBotSettings', JSON.stringify({
+    interval: intervalMs,
+    autoRefresh: autoRefreshPage,
+    refreshCount,
+    step: currentStep,
+    targetSections,
+  }));
 }
 
 function stopMonitoring() {
