@@ -1,0 +1,20 @@
+# Archivos del sistema
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Node modules (si se agregan dependencias)
+node_modules/
+package-lock.json
+
+# Archivos de desarrollo
+*.log
+.vscode/
+.idea/
+
+# Archivos temporales
+tmp/
+temp/
+
