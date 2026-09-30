@@ -7,7 +7,7 @@ mano en la ventana que pase primero.
 Uso:
   python3 launch.py --setup                  # loguearse una vez (después cerrar Chrome del todo)
   python3 launch.py -u <url> -n 9            # abrir 9 ventanas en <url>
-  python3 launch.py                          # sin -u ni -n: Boca Socios, 9 ventanas
+  python3 launch.py                          # sin -u ni -n: Boca Socios, 3 ventanas
   python3 launch.py --reset                  # borrar los perfiles guardados
 
 Funciona en macOS y Windows. Solo usa la librería estándar de Python 3.
@@ -21,7 +21,12 @@ import subprocess
 import sys
 import threading
 import time
+import urllib.error
+import urllib.request
+import webbrowser
 from pathlib import Path
+
+from dashboard import DASHBOARD_HOST, DASHBOARD_PORT, serve_dashboard
 
 ROOT = Path(__file__).resolve().parent
 PROFILES = ROOT / "profiles"
@@ -266,6 +271,62 @@ def launch(chrome, profile, url, slot):
     return proc
 
 
+def ensure_dashboard_server(port=DASHBOARD_PORT):
+    """Start the local dashboard as a detached helper if it is not running."""
+    health_url = f"http://{DASHBOARD_HOST}:{port}/api/health"
+    try:
+        with urllib.request.urlopen(health_url, timeout=0.5) as response:
+            data = json.loads(response.read().decode("utf-8"))
+            if response.status == 200 and data.get("service") == "boca-queue-dashboard":
+                return
+    except (OSError, urllib.error.URLError, ValueError):
+        pass
+
+    command = [
+        sys.executable,
+        str(Path(__file__).resolve()),
+        "--dashboard-server",
+        "--dashboard-port",
+        str(port),
+    ]
+    kwargs = {
+        "stdin": subprocess.DEVNULL,
+        "stdout": subprocess.DEVNULL,
+        "stderr": subprocess.DEVNULL,
+        "close_fds": True,
+    }
+    if IS_WIN:
+        kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS
+    else:
+        kwargs["start_new_session"] = True
+    subprocess.Popen(command, **kwargs)
+
+    for _ in range(30):
+        try:
+            with urllib.request.urlopen(health_url, timeout=0.5) as response:
+                data = json.loads(response.read().decode("utf-8"))
+                if response.status == 200 and data.get("service") == "boca-queue-dashboard":
+                    return
+        except (OSError, urllib.error.URLError, ValueError):
+            time.sleep(0.2)
+    raise RuntimeError(f"No se pudo iniciar el panel local en {health_url}")
+
+
+def start_dashboard_session(port, expected_count):
+    endpoint = f"http://{DASHBOARD_HOST}:{port}/api/session"
+    body = json.dumps({"expectedCount": expected_count}).encode("utf-8")
+    request = urllib.request.Request(
+        endpoint,
+        data=body,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(request, timeout=2) as response:
+        result = json.loads(response.read().decode("utf-8"))
+    if response.status != 202 or not result.get("accepted"):
+        raise RuntimeError("el panel no aceptó la nueva tanda de ventanas")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("-u", "--url", default=DEFAULT_URL,
@@ -274,7 +335,12 @@ def main():
                         help=f"cantidad de ventanas (default: {DEFAULT_COUNT})")
     parser.add_argument("--setup", action="store_true", help="abrir profile-0 para loguearse una vez")
     parser.add_argument("--reset", action="store_true", help="borrar todos los perfiles y el login guardado")
+    parser.add_argument("--dashboard-server", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--dashboard-port", type=int, default=DASHBOARD_PORT, help=argparse.SUPPRESS)
     opts = parser.parse_args()
+    if opts.dashboard_server:
+        serve_dashboard(opts.dashboard_port)
+        return
     if opts.count < 1:
         parser.error("-n tiene que ser 1 o más")
 
@@ -301,6 +367,15 @@ def main():
             clear_queue_cookies(PROFILES / f"profile-{i}")
     else:
         print("No hay login guardado (--setup): las ventanas arrancan sin sesión.")
+
+    try:
+        ensure_dashboard_server(opts.dashboard_port)
+        start_dashboard_session(opts.dashboard_port, opts.count)
+        dashboard_url = f"http://{DASHBOARD_HOST}:{opts.dashboard_port}/"
+        webbrowser.open(dashboard_url)
+        print(f"Panel de filas: {dashboard_url}")
+    except (OSError, ValueError, RuntimeError) as error:
+        print(f"AVISO: {error}. Las ventanas se abriran igual.")
 
     slots = tile(opts.count)
     for i in range(opts.count):

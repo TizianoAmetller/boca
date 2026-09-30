@@ -11,7 +11,8 @@
   ],
   "host_permissions": [
     "https://bocasocios.bocajuniors.com.ar/*",
-    "https://*.queue-it.net/*"
+    "https://*.queue-it.net/*",
+    "http://127.0.0.1:8765/*"
   ],
   "icons": {
     "16": "icons/icon16.png",

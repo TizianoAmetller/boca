@@ -1,5 +1,10 @@
 // background.js - Service Worker para eventos en segundo plano
 
+// El launcher levanta este panel solo en la computadora local. Si el panel
+// no está abierto (por ejemplo, cuando se usa la extensión manualmente), el
+// error se ignora y el resto de la extensión sigue funcionando.
+const QUEUE_DASHBOARD_ENDPOINT = 'http://127.0.0.1:8765/api/queue';
+
 chrome.runtime.onInstalled.addListener(() => {
   console.log('✅ Boca Entradas Bot instalado');
 });
@@ -9,6 +14,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'foundTicket') {
     console.log('🎉 Entrada encontrada!');
     // El popup y content script manejan las notificaciones visuales
+  } else if (message.action === 'queueUpdate') {
+    fetch(QUEUE_DASHBOARD_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(message.data || {})
+    }).catch(() => {
+      // El panel es opcional: no interrumpir la espera si todavía no arrancó.
+    });
+    sendResponse({ accepted: true });
   } else if (message.action === 'queuePassed' && sender.tab) {
     // Esta ventana salió de la fila: traerla al frente y avisar
     chrome.notifications.create({

@@ -73,6 +73,16 @@ Si no pasamos los parametros:
 Con 9 ventanas (3 × 3) la página se lee bien. Cada ventana es un Chrome entero: si cargan lento,
 abriste demasiadas.
 
+### Panel local de filas
+
+Al abrir las ventanas con el launcher también se inicia un panel local en
+`http://127.0.0.1:8765/`. El panel recibe los datos de cada ventana, ordena las
+filas por menor tiempo estimado cuando todas entran a la cola y conserva ese
+orden como una captura fija. También permite enfocar la ventana correspondiente.
+Antes de completar la captura descarta ventanas que dejan de informar durante
+15 segundos; una vez capturado el orden, lo conserva hasta la próxima ejecución.
+Los datos se mantienen en la computadora local.
+
 ## Notas
 
 - Los perfiles quedan en `launcher/profiles/` (ignorado por git). Tienen tu login: no los compartas.
