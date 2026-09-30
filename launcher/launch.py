@@ -31,7 +31,7 @@ IS_WIN = sys.platform == "win32"
 IS_MAC = sys.platform == "darwin"
 
 DEFAULT_URL = "https://bocasocios.bocajuniors.com.ar"
-DEFAULT_COUNT = 9
+DEFAULT_COUNT = 3
 
 MIN_WINDOW_W = 500  # ancho mínimo de una ventana de Chrome (medido)
 MAX_ROWS = 4

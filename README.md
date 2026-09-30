@@ -93,7 +93,7 @@ Requisitos: Google Chrome y Python 3 (macOS o Windows, sin dependencias extra).
 python3 launcher/launch.py --setup
 
 # 2. Unos 5 minutos antes: abrir las ventanas (en Windows: python en vez de python3)
-python3 launcher/launch.py -u "https://bocasocios.bocajuniors.com.ar/matches/<ID>/plateas" -n 9
+python3 launcher/launch.py -u "<url>" -n 9
 
 # Borrar los perfiles y el login guardado
 python3 launcher/launch.py --reset
