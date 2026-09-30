@@ -1,154 +1,91 @@
 # ⚽ Boca Entradas Bot
 
-Bot automatizado para monitorear y reservar entradas en bocasocios.bocajuniors.com.ar
+Extensión de Chrome que busca y reserva entradas en [Boca Socios](https://bocasocios.bocajuniors.com.ar),
+más un launcher que abre varias ventanas para ocupar más de un lugar en la fila de Queue-it.
+Solo **reserva**: el pago lo completás a mano.
 
-## 🎯 Funcionalidades
+## Requisitos
 
-- ✅ Monitoreo automático de la página de entradas
-- ✅ Refresco constante hasta encontrar entradas disponibles
-- ✅ Reserva automática cuando detecta disponibilidad
-- ✅ Interfaz simple y fácil de usar
-- ✅ Configuración de intervalo de recarga
-- ✅ Filtro opcional por sección
+- Google Chrome
+- Una cuenta de Boca Socios
+- Python 3, solo para el launcher (macOS o Windows, sin dependencias extra)
 
-## 📦 Instalación
+## Instalación
 
-1. **Descarga o clona este repositorio**
-
-2. **Abre Chrome y ve a:**
+1. Cloná el repo:
+   ```bash
+   git clone https://github.com/TizianoAmetller/boca.git
    ```
-   chrome://extensions/
-   ```
+2. Cargá la extensión en Chrome:
+   1. Abrí `chrome://extensions`.
+   2. Activá **Modo de desarrollador** (arriba a la derecha).
+   3. Hacé click en **Cargar extensión sin empaquetar**.
+   4. Elegí la carpeta **`extension/`** del repo (no la raíz).
+   5. Fijá la extensión en la barra: ícono de rompecabezas 🧩 → 📌 al lado de *Boca Entradas Bot*.
 
-3. **Habilita el "Modo de desarrollador"** (toggle en la esquina superior derecha)
+Si actualizás el repo, volvé a `chrome://extensions` y apretá ↻ en la extensión.
 
-4. **Haz clic en "Cargar extensión sin empaquetar"**
+El launcher no se instala: ya carga la extensión solo en cada ventana que abre.
 
-5. **Selecciona la carpeta `extension/` del proyecto**
+## Uso
 
-6. **¡Listo!** Verás el ícono de la extensión en la barra de herramientas
+### Extensión (una ventana)
 
-## 🚀 Uso
+1. Logueate en Boca Socios y abrí la página del partido
+   (`https://bocasocios.bocajuniors.com.ar/matches/<ID>/plateas`).
+2. Hacé click en el ícono de la extensión.
+3. Opcional: elegí **Sectores** y activá **Recargar cada (s)**.
+4. Apretá **Iniciar**. El bot elige un sector libre, busca asiento y agrega la platea.
+5. Cuando reserve, completá el pago a mano.
 
-1. **Abre la página de entradas de Boca:**
-   ```
-   https://bocasocios.bocajuniors.com.ar/matches/[ID]/plateas
-   ```
+Para frenarlo: **Detener** en el popup o `Alt+Shift+S`.
 
-2. **Inicia sesión** en tu cuenta de Boca Socios
+### Launcher (varias ventanas en la fila)
 
-3. **Haz clic en el ícono de la extensión** en la barra de herramientas
+Cada ventana es un Chrome con su propio perfil, así que ocupa su propio lugar en la fila.
+Las tabs no sirven para esto: todas las tabs de un perfil comparten las cookies y ocupan un solo lugar.
+En Windows usá `python` en vez de `python3`.
 
-4. **Configura los parámetros:**
-   - Intervalo de recarga (segundos)
-   - Sección deseada (opcional)
-
-5. **Haz clic en "Iniciar Monitor"**
-
-6. **El bot comenzará a monitorear** y te notificará cuando encuentre entradas
-
-7. **Cuando encuentre una entrada disponible**, intentará reservarla automáticamente
-
-8. **Completa el pago manualmente** cuando el bot haya reservado la entrada
-
-## ⚙️ Configuración
-
-- **Chequeo de la página:** Fijo en 0.1 segundos. Solo revisa la página ya cargada, no hace pedidos al servidor
-- **Filtrar por sección:** Opcional, para buscar solo en una sección específica (ej: "Platea Alta", "TS 1")
-- **Refrescar página automáticamente:** Si está marcado, la página se recarga para obtener nuevos datos del servidor
-- **Intervalo de recarga:** Cada cuántos segundos se recarga la página (por defecto 1, mínimo 0.3). Cada recarga es un pedido completo al servidor y cuenta para el rate limit
-- **Aviso de fila:** Si la pestaña pasó por la sala de espera de Queue-it, al volver a Boca Socios la ventana se trae al frente, muestra una notificación y el título pasa a "✅ ADENTRO"
-
-## ⚠️ Notas Importantes
-
-- Debes estar **logueado** en tu cuenta de Boca Socios
-- El bot solo **reserva** la entrada, **NO completa el pago**
-- Usa con responsabilidad y respeta los términos de servicio
-- El bot funciona mejor si la pestaña está activa
-
-## 🔧 Solución de Problemas
-
-### El bot no detecta entradas
-- Verifica que estés en la página correcta
-- Revisa la consola del navegador (F12) para ver logs
-- Ajusta el intervalo de recarga
-
-### No se reserva automáticamente
-- Verifica que estés logueado
-- Revisa si hay captcha o verificaciones adicionales
-- La estructura de la página puede haber cambiado
-
-## 🪟 Varias ventanas en la fila (launcher)
-
-`launcher/launch.py` abre N ventanas de Chrome para ocupar N lugares en cualquier sala de
-espera de Queue-it (Boca Socios, Deportick, etc.). Cada ventana es un Chrome con su propio
-perfil y trae esta extensión cargada. Las tabs no sirven para esto: todas las tabs de un perfil
-comparten las cookies, así que ocupan un solo lugar. **No compra nada**: comprás a mano en la
-ventana que pase primero.
-
-Requisitos: Google Chrome y Python 3 (macOS o Windows, sin dependencias extra).
-
+**1. Antes de la venta, logueate una vez:**
 ```bash
-# 1. Antes de la venta: loguearte una vez. Después cerrá Chrome del todo (en Mac: Cmd+Q)
 python3 launcher/launch.py --setup
+```
+Se abre una ventana: logueate y cerrá Chrome del todo (en Mac: `Cmd+Q`). El script termina solo.
 
-# 2. Unos 5 minutos antes: abrir las ventanas (en Windows: python en vez de python3)
-python3 launcher/launch.py -u "<url>" -n 9
-
-# Borrar los perfiles y el login guardado
-python3 launcher/launch.py --reset
+**2. Unos 5 minutos antes, abrí las ventanas:**
+```bash
+python3 launcher/launch.py -u "https://bocasocios.bocajuniors.com.ar/matches/<ID>/plateas" -n 9
 ```
 
-- `-u`: la URL. `<ID>` es el número del partido: entrá al partido en Boca Socios y copiá la URL
-  entera. Sin `-u` abre la página principal de Boca Socios. Para otro sitio (por ejemplo
-  Deportick) pasale su URL, también en `--setup`.
-- `-n`: cuántas ventanas. Sin `-n` abre 9.
+| Opción | Qué hace | Si no la pasás |
+|---|---|---|
+| `-u` | URL a abrir. `<ID>` es el número del partido: copiá la URL de Boca Socios | Página principal de Boca Socios |
+| `-n` | Cantidad de ventanas | 3 |
+| `--setup` | Abre una ventana para loguearte (acepta `-u`) | |
+| `--reset` | Borra los perfiles y el login guardado | |
 
-- **Login:** te logueás una vez en `profile-0`. Cada ventana extra recibe una copia de sus
-  cookies y su localStorage.
-- **Lugar propio:** antes de abrir se borran las cookies de Queue-it de todos los perfiles, así
-  cada ventana recibe un QueueId nuevo.
-- **Posición en el título:** en la sala de espera, la extensión pone en el título de la pestaña
-  cuánta gente hay adelante (o tu número) y la espera estimada, por ejemplo
-  `👥 1234 adelante · ⏱ 6 minutes · a1b2`. Los 4 caracteres del final son el QueueId: tienen
-  que ser distintos en cada ventana.
-- **Grilla:** las ventanas se acomodan en columnas de ~500px (el mínimo de Chrome), hasta 4 filas.
-  En Windows la grilla ocupa todos los monitores; en Mac, solo la pantalla principal.
-- **Podés cerrar la terminal:** las ventanas siguen abiertas. No relances el script con las
-  ventanas en la fila: empieza de cero y perdés los lugares (el script avisa y no te deja).
-- Los perfiles quedan en `launcher/profiles/` (está en `.gitignore`). Tienen tu token de login:
-  no los compartas.
+**3. En la fila:**
+- El título de cada pestaña muestra la posición, por ejemplo `👥 1234 adelante · ⏱ 6 minutes · a1b2`.
+  Los 4 caracteres del final son el QueueId: tienen que ser distintos en cada ventana.
+- No recargues, no cierres ventanas y no vuelvas a correr el script: perdés los lugares.
+  Cerrar la terminal sí se puede.
+- La ventana que pasa se trae al frente y su título pasa a `✅ ADENTRO`. Ahí usá la extensión
+  como siempre.
+- Comprá en **una sola** ventana: todas usan la misma cuenta.
 
-Cuántas ventanas: con 9 (3 × 3) la página se lee bien; con 12 (3 × 4) solo se ve la barra de
-tabs, pero alcanza para ver cuál pasó. Cada ventana es un Chrome entero: si empiezan a cargar
-lento, abriste demasiadas. Queue-it suele sortear a todos los que llegan *antes* de que abra la
-venta, así que conviene abrir las ventanas unos minutos antes.
+Con 9 ventanas (3 × 3) la página se lee bien. Cada ventana es un Chrome entero: si cargan lento,
+abriste demasiadas.
 
-Carga de la extensión: Chrome 137+ ignora `--load-extension`, así que el script la carga por el
-protocolo de DevTools (`--remote-debugging-pipe` + `Extensions.loadUnpacked`). Probado en macOS
-con Chrome 154. **En Windows todavía no se probó.**
+## Notas
 
-Abrir varios lugares en la fila probablemente va contra los términos de servicio del sitio.
+- Los perfiles quedan en `launcher/profiles/` (ignorado por git). Tienen tu login: no los compartas.
+- El launcher sirve para cualquier sitio con Queue-it (por ejemplo Deportick): pasale su URL con `-u`, también en `--setup`.
+- Probado en macOS con Chrome 154. **En Windows todavía no se probó.**
+- Abrir varios lugares en la fila probablemente va contra los términos de servicio del sitio.
 
-## 🔍 Cómo funciona
+## Problemas comunes
 
-1. **Paso 1 - SECTOR:** El bot detecta sectores disponibles en el mapa del estadio (elementos verdes, clickeables) y hace click inmediatamente
-2. **Paso 2 - PÁGINA DE ASIENTOS:** Automáticamente busca y hace click en el botón amarillo **"BUSCAR ASIENTO DISPONIBLE"** (más rápido que buscar asientos individuales)
-3. **Paso 3 - MODAL DE CONFIRMACIÓN:** Cuando aparece el modal con la ubicación seleccionada, hace click en el botón blanco **"+ AGREGAR PLATEA"**
-4. **Paso 4 - RESERVA:** Continúa con el proceso de reserva
-5. **Velocidad máxima:** Verifica la página cada 0.1 segundos
-6. **Refresco automático:** Opcionalmente refresca la página cada 10 segundos para obtener datos actualizados
-
-**El bot maneja automáticamente todo el flujo optimizado:** SECTOR → BUSCAR ASIENTO → AGREGAR PLATEA → RESERVA, todo sin intervención manual.
-
-## 📝 Desarrollo
-
-Para modificar los selectores y lógica de detección, edita `content.js`:
-- Función `findAvailableTickets()`: detecta entradas disponibles
-- Función `reserveTicket()`: realiza la reserva
-
-**Nota:** Si la página cambia su estructura HTML, puede ser necesario actualizar los selectores en `findAvailableTickets()`.
-
-## 📄 Licencia
-
-Uso personal solamente. Usa con responsabilidad.
+- **La extensión no aparece:** revisá que cargaste la carpeta `extension/` y no la raíz del repo.
+- **El bot no hace nada:** tenés que estar logueado y en una página de Boca Socios. Mirá la consola (F12).
+- **"Estos perfiles siguen abiertos":** cerrá las ventanas del launcher (en Mac: `Cmd+Q`) y volvé a correrlo.
+- **Ventanas deslogueadas:** si Boca Socios no permite varias sesiones a la vez, logueate de nuevo en la ventana que pasó.
