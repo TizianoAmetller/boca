@@ -6,14 +6,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const statusDiv = document.getElementById('status');
   const sectorsContainer = document.getElementById('sectorsContainer');
   const sectorsEmpty = document.getElementById('sectorsEmpty');
-  const autoRefreshCheckbox = document.getElementById('autoRefresh');
   const reloadIntervalInput = document.getElementById('reloadInterval');
   const refreshCountSpan = document.getElementById('refreshCount');
   const lastCheckSpan = document.getElementById('lastCheck');
-
-  autoRefreshCheckbox.addEventListener('change', () => {
-    reloadIntervalInput.disabled = !autoRefreshCheckbox.checked;
-  });
 
   let availableSectors = [];
   let selectedSectorCodes = new Set();
@@ -66,7 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     startBtn.addEventListener('click', () => {
       const interval = 100; // chequeo del DOM fijo: no hace pedidos al servidor, no tiene sentido hacerlo más lento
-      const autoRefresh = autoRefreshCheckbox.checked;
+      const autoRefresh = true; // siempre: solo consulta la API de disponibilidad, sin recargar
       const reloadInterval = Math.max(parseFloat(reloadIntervalInput.value) * 1000 || 1000, 300);
       const targetSections = Array.from(selectedSectorCodes);
       
@@ -139,21 +134,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function saveSettings() {
     chrome.storage.local.set({
-      autoRefresh: autoRefreshCheckbox.checked,
       reloadInterval: reloadIntervalInput.value,
       selectedSectorCodes: Array.from(selectedSectorCodes)
     });
   }
 
   function loadSettings() {
-    chrome.storage.local.get(['autoRefresh', 'reloadInterval', 'selectedSectorCodes'], (result) => {
+    chrome.storage.local.get(['reloadInterval', 'selectedSectorCodes'], (result) => {
       if (result.reloadInterval) {
         reloadIntervalInput.value = result.reloadInterval;
       }
-      if (result.autoRefresh !== undefined) {
-        autoRefreshCheckbox.checked = result.autoRefresh;
-      }
-      reloadIntervalInput.disabled = !autoRefreshCheckbox.checked;
       if (Array.isArray(result.selectedSectorCodes)) {
         selectedSectorCodes = new Set(result.selectedSectorCodes);
       }
