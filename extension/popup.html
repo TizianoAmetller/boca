@@ -96,27 +96,10 @@
       color: #e5e7eb;
       font-size: 12px;
     }
-    input[type="number"]:disabled {
-      opacity: 0.4;
-    }
     input[type="number"]:focus {
       outline: none;
       border-color: rgba(59, 130, 246, 0.9);
       box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.6);
-    }
-    .checkbox {
-      display: flex;
-      flex-direction: row;
-      align-items: center;
-      gap: 6px;
-      font-size: 11px;
-      color: #9ca3af;
-      cursor: pointer;
-    }
-    .checkbox input {
-      accent-color: #2563eb;
-      width: 13px;
-      height: 13px;
     }
     .stats {
       display: flex;
@@ -223,10 +206,7 @@
     </div>
 
     <div class="row">
-      <label class="checkbox" title="Recarga la página para traer datos nuevos. Cada recarga es un pedido al servidor y cuenta para el rate limit.">
-        <input id="autoRefresh" type="checkbox" />
-        <span>Recargar cada (s)</span>
-      </label>
+      <label for="reloadInterval" title="Consulta cada tanto la disponibilidad de sectores a la API, sin recargar la página. Si no puede, recarga la página como antes. Cada consulta es un pedido al servidor y cuenta para el rate limit.">Actualizar cada (s)</label>
       <input id="reloadInterval" type="number" step="0.1" min="0.3" value="1" />
     </div>
 

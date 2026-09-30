@@ -82,19 +82,76 @@ function startMonitoring(interval, section, autoRefresh, reloadInterval) {
   persistBotState();
   checkForTicketsRAF();
 
-  if (autoRefreshPage) {
-    pageRefreshInterval = setInterval(() => {
-      const url = window.location.href.toLowerCase();
-      if (url.includes('/plateas') && !url.includes('/seat') && !url.includes('/reserva')) {
-        persistBotState();
-        window.location.reload();
-      } else {
-        clearInterval(pageRefreshInterval);
-        pageRefreshInterval = null;
-      }
-    }, reloadMs);
+  if (autoRefreshPage && currentStep === 'sector') {
+    // Primero consultamos solo la API de disponibilidad (page-poll.js); si no se puede, recargamos
+    apiPolling = true;
+    postToPage('poll-start', { targets: targetSections, intervalMs: reloadMs });
+    pollAckTimer = setTimeout(() => {
+      if (apiPolling) fallbackToReload('page-poll.js no respondió');
+    }, 1500);
   }
 }
+
+function startReloadLoop() {
+  pageRefreshInterval = setInterval(() => {
+    const url = window.location.href.toLowerCase();
+    if (url.includes('/plateas') && !url.includes('/seat') && !url.includes('/reserva')) {
+      persistBotState();
+      window.location.reload();
+    } else {
+      clearInterval(pageRefreshInterval);
+      pageRefreshInterval = null;
+    }
+  }, reloadMs);
+}
+
+// --- Polling por API (sin recargar la página) ---
+let apiPolling = false;
+let pollAckTimer = null;
+
+function postToPage(type, data = {}) {
+  window.postMessage({ source: 'boca-bot', dir: 'content', type, ...data }, '*');
+}
+
+function stopApiPolling() {
+  if (pollAckTimer) clearTimeout(pollAckTimer);
+  pollAckTimer = null;
+  if (apiPolling) postToPage('poll-stop');
+  apiPolling = false;
+}
+
+function fallbackToReload(reason) {
+  console.warn('⚠️ Polling por API no disponible (' + reason + '), vuelvo a recargar la página');
+  stopApiPolling();
+  if (isMonitoring && autoRefreshPage && currentStep === 'sector' && !pageRefreshInterval) {
+    startReloadLoop();
+  }
+}
+
+window.addEventListener('message', (e) => {
+  if (e.source !== window || e.data?.source !== 'boca-bot' || e.data.dir !== 'page') return;
+  if (!apiPolling) return;
+  switch (e.data.type) {
+    case 'poll-ready':
+      clearTimeout(pollAckTimer);
+      pollAckTimer = null;
+      console.log('🔁 Consultando disponibilidad por API cada ' + reloadMs + 'ms (sin recargar)');
+      break;
+    case 'poll-tick':
+      refreshCount++;
+      break;
+    case 'poll-found':
+      // page-poll.js ya navegó al sector; el loop RAF detecta /seats/ y sigue el flujo
+      console.log('🎯 Sector disponible por API: ' + e.data.codigo);
+      apiPolling = false;
+      currentStep = 'asiento';
+      break;
+    case 'poll-failed':
+      apiPolling = false;
+      fallbackToReload(e.data.reason);
+      break;
+  }
+});
 
 function persistBotState() {
   sessionStorage.setItem('bocaBotActive', 'true');
@@ -113,6 +170,7 @@ function stopMonitoring() {
   if (refreshInterval) clearInterval(refreshInterval);
   if (pageRefreshInterval) clearInterval(pageRefreshInterval);
   if (rafId) cancelAnimationFrame(rafId);
+  stopApiPolling();
   refreshInterval = null;
   pageRefreshInterval = null;
   rafId = null;
@@ -169,6 +227,7 @@ function checkForTicketsRAF(timestamp = 0) {
           clearInterval(pageRefreshInterval);
           pageRefreshInterval = null;
         }
+        stopApiPolling();
         setupModalObserver();
       }
     } else if (url.includes('/reserva')) {
@@ -215,6 +274,7 @@ function checkForTickets() {
           clearInterval(pageRefreshInterval);
           pageRefreshInterval = null;
         }
+        stopApiPolling();
         // VELOCIDAD EXTREMA: 0ms = ejecutar lo más rápido posible
         clearInterval(refreshInterval);
         refreshInterval = setInterval(checkForTickets, 0);
@@ -253,6 +313,7 @@ function findAndClickAvailableSector() {
       clearInterval(pageRefreshInterval);
       pageRefreshInterval = null;
     }
+    stopApiPolling();
     
     currentStep = 'asiento';
     
@@ -273,6 +334,7 @@ function findAndClickAvailableSector() {
       clearInterval(pageRefreshInterval);
       pageRefreshInterval = null;
     }
+    stopApiPolling();
 
     currentStep = 'asiento';
     sector.dispatchEvent(CLICK_EVENT);
@@ -418,6 +480,7 @@ function setupSectorObserver() {
         clearInterval(pageRefreshInterval);
         pageRefreshInterval = null;
       }
+      stopApiPolling();
       
       currentStep = 'asiento';
       
@@ -441,6 +504,7 @@ function setupSectorObserver() {
         clearInterval(pageRefreshInterval);
         pageRefreshInterval = null;
       }
+      stopApiPolling();
 
       currentStep = 'asiento';
       sector.dispatchEvent(CLICK_EVENT);
