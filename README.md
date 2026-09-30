@@ -43,7 +43,6 @@ Para frenarlo: **Detener** en el popup o `Alt+Shift+S`.
 ### Launcher (varias ventanas en la fila)
 
 Cada ventana es un Chrome con su propio perfil, así que ocupa su propio lugar en la fila.
-Las tabs no sirven para esto: todas las tabs de un perfil comparten las cookies y ocupan un solo lugar.
 En Windows usá `python` en vez de `python3`.
 
 **1. Antes de la venta, logueate una vez:**
@@ -54,19 +53,16 @@ Se abre una ventana: logueate y cerrá Chrome del todo (en Mac: `Cmd+Q`). El scr
 
 **2. Unos 5 minutos antes, abrí las ventanas:**
 ```bash
-python3 launcher/launch.py -u "https://bocasocios.bocajuniors.com.ar/matches/<ID>/plateas" -n 9
+python3 launcher/launch.py -u "<url>" -n 9
 ```
 
-| Opción | Qué hace | Si no la pasás |
-|---|---|---|
-| `-u` | URL a abrir. `<ID>` es el número del partido: copiá la URL de Boca Socios | Página principal de Boca Socios |
-| `-n` | Cantidad de ventanas | 3 |
-| `--setup` | Abre una ventana para loguearte (acepta `-u`) | |
-| `--reset` | Borra los perfiles y el login guardado | |
+Si no pasamos los parametros:
+- url default: `https://bocasocios.bocajuniors.com.ar`
+- cantidad default de ventanas: 3
 
 **3. En la fila:**
-- El título de cada pestaña muestra la posición, por ejemplo `👥 1234 adelante · ⏱ 6 minutes · a1b2`.
-  Los 4 caracteres del final son el QueueId: tienen que ser distintos en cada ventana.
+- El título de cada pestaña muestra el tiempo de espera estimado
+- El queue-id tiene que ser distinto por cada ventana
 - No recargues, no cierres ventanas y no vuelvas a correr el script: perdés los lugares.
   Cerrar la terminal sí se puede.
 - La ventana que pasa se trae al frente y su título pasa a `✅ ADENTRO`. Ahí usá la extensión
