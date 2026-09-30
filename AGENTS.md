@@ -22,6 +22,7 @@
 - `popup.js`: start/stop commands, stored settings, sector selector UI state, script injection fallback.
 - `popup.html`: inline styles + UI copy (Spanish).
 - `content.js`: non-default variant; update only if intentionally keeping parity.
+- `page-poll.js`: MAIN-world content script (`document_start`). Hooks XHR to capture the site's own `GET /event/{matchId}/seat/section/availability` request (with its `Authorization`/`acceptRequest`/`queueittoken` headers) and replays it every `reloadInterval` instead of reloading; on a matching `hayDisponibilidad` section it calls `window.next.router.push('/matches/{matchId}/plateas/seats/{nid}')`. Talks to `content-hybrid.js` via `window.postMessage` (`source: 'boca-bot'`); on `poll-failed` or no ack the content script falls back to `location.reload()`.
 - `queue-watch.js`: runs on any `*.queue-it.net` page; flags `bocaInQueue` and writes queue position into the tab title (Queue-it ids `MainPart_lbUsersInLineAheadOfYou`, `MainPart_lbQueueNumber`, `MainPart_lbWhichIsIn`, `hlLinkToQueueTicket2`).
 - `launcher/launch.py`: Chrome 137+ ignores `--load-extension`, so it loads the extension over `--remote-debugging-pipe` (`Extensions.loadUnpacked`). Chrome exits when that pipe closes, so Chrome also inherits the other pipe ends; keep that or windows die with the script. Cookies DB is `Default/Network/Cookies` on Windows but `Default/Cookies` on macOS.
 - `VERSIONES.md`: human docs claiming version tradeoffs; trust code + `manifest.json` first if conflicts appear.

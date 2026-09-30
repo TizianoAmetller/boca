@@ -223,9 +223,9 @@
     </div>
 
     <div class="row">
-      <label class="checkbox" title="Recarga la página para traer datos nuevos. Cada recarga es un pedido al servidor y cuenta para el rate limit.">
+      <label class="checkbox" title="Consulta cada tanto la disponibilidad de sectores a la API, sin recargar la página. Si no puede, recarga la página como antes. Cada consulta es un pedido al servidor y cuenta para el rate limit.">
         <input id="autoRefresh" type="checkbox" />
-        <span>Recargar cada (s)</span>
+        <span>Actualizar cada (s)</span>
       </label>
       <input id="reloadInterval" type="number" step="0.1" min="0.3" value="1" />
     </div>

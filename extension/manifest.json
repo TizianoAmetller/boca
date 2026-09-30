@@ -29,6 +29,12 @@
   "content_scripts": [
     {
       "matches": ["https://bocasocios.bocajuniors.com.ar/*"],
+      "js": ["page-poll.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": ["https://bocasocios.bocajuniors.com.ar/*"],
       "js": ["content-hybrid.js"],
       "run_at": "document_idle"
     },
