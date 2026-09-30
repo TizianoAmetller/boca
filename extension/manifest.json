@@ -6,10 +6,12 @@
   "permissions": [
     "storage",
     "activeTab",
-    "scripting"
+    "scripting",
+    "notifications"
   ],
   "host_permissions": [
-    "https://bocasocios.bocajuniors.com.ar/*"
+    "https://bocasocios.bocajuniors.com.ar/*",
+    "https://*.queue-it.net/*"
   ],
   "action": {
     "default_popup": "popup.html"
@@ -19,8 +21,22 @@
       "matches": ["https://bocasocios.bocajuniors.com.ar/*"],
       "js": ["content-hybrid.js"],
       "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://*.queue-it.net/*"],
+      "js": ["queue-watch.js"],
+      "run_at": "document_start"
     }
   ],
+  "commands": {
+    "stop-bot": {
+      "suggested_key": {
+        "default": "Alt+Shift+S",
+        "mac": "Alt+Shift+S"
+      },
+      "description": "Detener el bot"
+    }
+  },
   "background": {
     "service_worker": "background.js"
   }

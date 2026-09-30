@@ -1,0 +1,3 @@
+# Perfiles de Chrome del launcher: tienen tu token de login. Nunca commitearlos.
+launcher/profiles/
+.DS_Store

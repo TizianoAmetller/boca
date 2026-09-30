@@ -7,6 +7,7 @@ let refreshCount = 0;
 let lastCheck = null;
 let intervalMs = 500;
 let autoRefreshPage = false;
+let reloadMs = 1000; // intervalo de recarga de página, independiente del intervalo de chequeo
 let currentStep = 'sector';
 let targetSections = null; // array de códigos de sector (data-section)
 let targetSectionsSet = null; // Set para match rápido
@@ -41,7 +42,7 @@ let sectorObserver = null;
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   switch (message.action) {
     case 'start':
-      startMonitoring(message.interval, message.targetSections ?? message.targetSection, message.autoRefresh);
+      startMonitoring(message.interval, message.targetSections ?? message.targetSection, message.autoRefresh, message.reloadInterval);
       sendResponse({ success: true });
       break;
     case 'stop':
@@ -58,11 +59,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return true;
 });
 
-function startMonitoring(interval, section, autoRefresh) {
+function startMonitoring(interval, section, autoRefresh, reloadInterval) {
   if (isMonitoring) return;
   isMonitoring = true;
   intervalMs = Math.max(interval || 500, 100);
   autoRefreshPage = autoRefresh || false;
+  reloadMs = Math.max(reloadInterval || 1000, 300);
   refreshCount = 0;
   targetSections = normalizeTargetSections(section);
   targetSectionsSet = targetSections ? new Set(targetSections) : null;
@@ -90,7 +92,7 @@ function startMonitoring(interval, section, autoRefresh) {
         clearInterval(pageRefreshInterval);
         pageRefreshInterval = null;
       }
-    }, intervalMs);
+    }, reloadMs);
   }
 }
 
@@ -99,6 +101,7 @@ function persistBotState() {
   sessionStorage.setItem('bocaBotSettings', JSON.stringify({
     interval: intervalMs,
     autoRefresh: autoRefreshPage,
+    reloadInterval: reloadMs,
     refreshCount,
     step: currentStep,
     targetSections,
@@ -125,7 +128,16 @@ function stopMonitoring() {
   }
   sessionStorage.removeItem('bocaBotActive');
   sessionStorage.removeItem('bocaBotSettings');
+  chrome.storage.local.set({ bocaBotEnabled: false });
 }
+
+// El popup apaga el bot escribiendo en chrome.storage: funciona aunque la página
+// se esté recargando y el mensaje 'stop' no tenga a quién llegar.
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && changes.bocaBotEnabled?.newValue === false && isMonitoring) {
+    stopMonitoring();
+  }
+});
 
 // Función principal con requestAnimationFrame
 let rafId = null;
@@ -458,20 +470,52 @@ if (document.readyState === 'loading') {
 
 function initialize() {
   if (!window.location.href.includes('bocasocios.bocajuniors.com.ar')) return;
-  
+
+  checkQueuePassed();
+
   if (sessionStorage.getItem('bocaBotActive') === 'true') {
-    try {
-      const settings = JSON.parse(sessionStorage.getItem('bocaBotSettings') || '{}');
-      if (settings.interval) {
-        startMonitoring(settings.interval, settings.targetSections ?? null, settings.autoRefresh);
-        if (settings.refreshCount) refreshCount = settings.refreshCount;
-        if (settings.step) currentStep = settings.step;
+    // Solo retomar si no se pidió detener mientras la página recargaba
+    chrome.storage.local.get('bocaBotEnabled', ({ bocaBotEnabled }) => {
+      if (bocaBotEnabled === false) {
+        sessionStorage.removeItem('bocaBotActive');
+        sessionStorage.removeItem('bocaBotSettings');
+        return;
       }
-    } catch (e) {
-      sessionStorage.removeItem('bocaBotActive');
-      sessionStorage.removeItem('bocaBotSettings');
-    }
+      try {
+        const settings = JSON.parse(sessionStorage.getItem('bocaBotSettings') || '{}');
+        if (settings.interval) {
+          startMonitoring(settings.interval, settings.targetSections ?? null, settings.autoRefresh, settings.reloadInterval);
+          if (settings.refreshCount) refreshCount = settings.refreshCount;
+          if (settings.step) currentStep = settings.step;
+        }
+      } catch (e) {
+        sessionStorage.removeItem('bocaBotActive');
+        sessionStorage.removeItem('bocaBotSettings');
+      }
+    });
   }
+}
+
+// Aviso de "pasaste la fila": queue-watch.js marca bocaInQueue mientras estamos en
+// Queue-it; al volver a Boca (o si la URL trae queueittoken) avisamos una sola vez.
+function checkQueuePassed() {
+  // location.reload() conserva queueittoken en la URL: avisar solo una vez por pestaña
+  if (sessionStorage.getItem('bocaQueueAlerted') === 'true') return;
+  const hasToken = /[?&]queueittoken=/i.test(window.location.search);
+  chrome.storage.local.get('bocaInQueue', ({ bocaInQueue }) => {
+    if (!bocaInQueue && !hasToken) return;
+    sessionStorage.setItem('bocaQueueAlerted', 'true');
+    chrome.storage.local.set({ bocaInQueue: false });
+    chrome.runtime.sendMessage({ action: 'queuePassed' });
+
+    // El sitio puede pisar el título al navegar: lo re-aplicamos un rato
+    const prefix = '✅ ADENTRO — ';
+    let ticks = 0;
+    const titleTimer = setInterval(() => {
+      if (!document.title.startsWith(prefix)) document.title = prefix + document.title;
+      if (++ticks >= 300) clearInterval(titleTimer);
+    }, 1000);
+  });
 }
 
 function normalizeTargetSections(input) {
