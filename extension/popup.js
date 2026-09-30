@@ -4,18 +4,29 @@ document.addEventListener('DOMContentLoaded', () => {
   const startBtn = document.getElementById('startBtn');
   const stopBtn = document.getElementById('stopBtn');
   const statusDiv = document.getElementById('status');
-  const refreshIntervalInput = document.getElementById('refreshInterval');
   const sectorsContainer = document.getElementById('sectorsContainer');
   const sectorsEmpty = document.getElementById('sectorsEmpty');
   const autoRefreshCheckbox = document.getElementById('autoRefresh');
+  const reloadIntervalInput = document.getElementById('reloadInterval');
   const refreshCountSpan = document.getElementById('refreshCount');
   const lastCheckSpan = document.getElementById('lastCheck');
+
+  autoRefreshCheckbox.addEventListener('change', () => {
+    reloadIntervalInput.disabled = !autoRefreshCheckbox.checked;
+  });
 
   let availableSectors = [];
   let selectedSectorCodes = new Set();
 
   // Cargar estado guardado
   loadSettings();
+
+  // Mostrar el atajo real (Chrome lo muestra como ⌥⇧S en macOS; puede no estar asignado si hay conflicto)
+  chrome.commands.getAll((commands) => {
+    const stop = commands.find(c => c.name === 'stop-bot');
+    document.getElementById('stopShortcut').textContent =
+      stop && stop.shortcut ? stop.shortcut : 'sin asignar';
+  });
 
   // Obtener la pestaña activa
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -28,6 +39,12 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    // Estado guardado primero: si la página está recargando, getStatus no tiene
+    // a quién llegar y sin esto el popup mostraría "Iniciar" con el bot corriendo
+    chrome.storage.local.get('bocaBotEnabled', ({ bocaBotEnabled }) => {
+      if (bocaBotEnabled) updateUI(true);
+    });
+
     // Verificar estado actual del bot
     chrome.tabs.sendMessage(currentTab.id, { action: 'getStatus' }, (response) => {
       if (chrome.runtime.lastError) {
@@ -35,8 +52,8 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
       
-      if (response && response.isActive) {
-        updateUI(true);
+      if (response) {
+        updateUI(response.isActive);
         refreshCountSpan.textContent = response.refreshCount || 0;
         if (response.lastCheck) {
           lastCheckSpan.textContent = new Date(response.lastCheck).toLocaleTimeString();
@@ -48,17 +65,20 @@ document.addEventListener('DOMContentLoaded', () => {
     loadSectorsForTab(currentTab);
 
     startBtn.addEventListener('click', () => {
-      const interval = parseFloat(refreshIntervalInput.value) * 1000 || 100;
+      const interval = 100; // chequeo del DOM fijo: no hace pedidos al servidor, no tiene sentido hacerlo más lento
       const autoRefresh = autoRefreshCheckbox.checked;
+      const reloadInterval = Math.max(parseFloat(reloadIntervalInput.value) * 1000 || 1000, 300);
       const targetSections = Array.from(selectedSectorCodes);
       
       saveSettings();
+      chrome.storage.local.set({ bocaBotEnabled: true });
       
       chrome.tabs.sendMessage(currentTab.id, {
         action: 'start',
         interval: interval,
         targetSections,
-        autoRefresh: autoRefresh
+        autoRefresh: autoRefresh,
+        reloadInterval
       }, (response) => {
         if (chrome.runtime.lastError) {
           // Inyectar content script si no está disponible
@@ -70,7 +90,8 @@ document.addEventListener('DOMContentLoaded', () => {
               action: 'start',
               interval: interval,
               targetSections,
-              autoRefresh: autoRefresh
+              autoRefresh: autoRefresh,
+              reloadInterval
             });
           });
         }
@@ -79,9 +100,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     stopBtn.addEventListener('click', () => {
+      // chrome.storage llega aunque la página esté recargando; el mensaje es por si acaso
+      chrome.storage.local.set({ bocaBotEnabled: false });
       chrome.tabs.sendMessage(currentTab.id, { action: 'stop' }, () => {
-        updateUI(false);
+        void chrome.runtime.lastError;
       });
+      updateUI(false);
     });
   });
 
@@ -115,20 +139,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function saveSettings() {
     chrome.storage.local.set({
-      refreshInterval: refreshIntervalInput.value,
       autoRefresh: autoRefreshCheckbox.checked,
+      reloadInterval: reloadIntervalInput.value,
       selectedSectorCodes: Array.from(selectedSectorCodes)
     });
   }
 
   function loadSettings() {
-    chrome.storage.local.get(['refreshInterval', 'autoRefresh', 'selectedSectorCodes'], (result) => {
-      if (result.refreshInterval) {
-        refreshIntervalInput.value = result.refreshInterval;
+    chrome.storage.local.get(['autoRefresh', 'reloadInterval', 'selectedSectorCodes'], (result) => {
+      if (result.reloadInterval) {
+        reloadIntervalInput.value = result.reloadInterval;
       }
       if (result.autoRefresh !== undefined) {
         autoRefreshCheckbox.checked = result.autoRefresh;
       }
+      reloadIntervalInput.disabled = !autoRefreshCheckbox.checked;
       if (Array.isArray(result.selectedSectorCodes)) {
         selectedSectorCodes = new Set(result.selectedSectorCodes);
       }

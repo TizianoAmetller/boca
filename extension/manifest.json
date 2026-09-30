@@ -1,0 +1,53 @@
+{
+  "manifest_version": 3,
+  "name": "Boca Entradas Bot",
+  "version": "1.0.0",
+  "description": "Bot para monitorear y reservar entradas en bocasocios.bocajuniors.com.ar",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting",
+    "notifications"
+  ],
+  "host_permissions": [
+    "https://bocasocios.bocajuniors.com.ar/*",
+    "https://*.queue-it.net/*"
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://bocasocios.bocajuniors.com.ar/*"],
+      "js": ["content-hybrid.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://*.queue-it.net/*"],
+      "js": ["queue-watch.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "commands": {
+    "stop-bot": {
+      "suggested_key": {
+        "default": "Alt+Shift+S",
+        "mac": "Alt+Shift+S"
+      },
+      "description": "Detener el bot"
+    }
+  },
+  "background": {
+    "service_worker": "background.js"
+  }
+}

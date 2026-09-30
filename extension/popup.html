@@ -32,14 +32,6 @@
       text-transform: uppercase;
       color: #bfdbfe;
     }
-    .pill {
-      font-size: 10px;
-      padding: 2px 6px;
-      border-radius: 999px;
-      background: rgba(56, 189, 248, 0.1);
-      color: #7dd3fc;
-      border: 1px solid rgba(56, 189, 248, 0.4);
-    }
     .status {
       font-size: 12px;
       margin-bottom: 8px;
@@ -104,6 +96,9 @@
       color: #e5e7eb;
       font-size: 12px;
     }
+    input[type="number"]:disabled {
+      opacity: 0.4;
+    }
     input[type="number"]:focus {
       outline: none;
       border-color: rgba(59, 130, 246, 0.9);
@@ -111,6 +106,7 @@
     }
     .checkbox {
       display: flex;
+      flex-direction: row;
       align-items: center;
       gap: 6px;
       font-size: 11px;
@@ -143,6 +139,7 @@
     }
     .sector-pill {
       display: inline-flex;
+      flex-direction: row;
       align-items: center;
       gap: 4px;
       padding: 3px 6px;
@@ -210,7 +207,6 @@
   <div class="card">
     <div class="header">
       <div class="title">Boca Entradas Bot</div>
-      <div class="pill">Live DOM Scanner</div>
     </div>
 
     <div id="status" class="status inactive">
@@ -218,44 +214,34 @@
       <span>Detenido</span>
     </div>
 
-    <div class="row">
-      <label>
-        Intervalo de chequeo
-        <span style="font-size:10px;color:#6b7280;">(segundos, recomendado 0.1–0.5)</span>
-      </label>
-      <input id="refreshInterval" type="number" step="0.1" min="0.05" value="0.5" />
-    </div>
-
     <div class="row" style="flex-direction:column; align-items:flex-start; gap:4px; margin-bottom:6px;">
-      <label>
-        Sectores objetivo (opcional)
-        <span style="font-size:10px;color:#6b7280;">Marca los códigos de sector a monitorear</span>
-      </label>
+      <label>Sectores (opcional)</label>
       <div id="sectorsContainer" class="sectors-list"></div>
       <div id="sectorsEmpty" class="sectors-empty" style="display:none;">
-        Abre la página de plateas para ver los sectores disponibles.
+        Abrí la página de plateas para ver los sectores.
       </div>
     </div>
 
-    <div class="row" style="margin-bottom:4px;">
-      <label class="checkbox">
+    <div class="row">
+      <label class="checkbox" title="Recarga la página para traer datos nuevos. Cada recarga es un pedido al servidor y cuenta para el rate limit.">
         <input id="autoRefresh" type="checkbox" />
-        <span>Refrescar página de sectores automáticamente</span>
+        <span>Recargar cada (s)</span>
       </label>
+      <input id="reloadInterval" type="number" step="0.1" min="0.3" value="1" />
     </div>
 
     <div class="stats">
       <span>Checks: <span id="refreshCount" class="value">0</span></span>
-      <span>Último check: <span id="lastCheck" class="value">–</span></span>
+      <span>Último: <span id="lastCheck" class="value">–</span></span>
     </div>
 
     <div class="buttons">
-      <button id="startBtn">Iniciar monitor</button>
+      <button id="startBtn">Iniciar</button>
       <button id="stopBtn">Detener</button>
     </div>
 
     <div class="hint">
-      Navega primero a <strong>bocasocios.bocajuniors.com.ar</strong> antes de iniciar.
+      Detener: <strong id="stopShortcut">–</strong>
     </div>
   </div>
 
