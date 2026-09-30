@@ -16,6 +16,7 @@ Solo **reserva**: el pago lo completás a mano.
    ```bash
    git clone https://github.com/TizianoAmetller/boca.git
    ```
+   o descarga el zip
 2. Cargá la extensión en Chrome:
    1. Abrí `chrome://extensions`.
    2. Activá **Modo de desarrollador** (arriba a la derecha).
