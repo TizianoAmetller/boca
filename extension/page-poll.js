@@ -11,8 +11,19 @@
   let pollTimer = null;
   let polling = false;
   let pollTargets = null; // Set de códigos normalizados, o null = cualquiera
-  let pollMs = 1000;
-  let backoffUntil = 0;
+  let baseMs = 1000; // intervalo del popup: el piso, nunca vamos más rápido
+  let pollMs = 1000; // intervalo actual: sube durante un bloqueo, vuelve a baseMs al terminar
+  let penaltyStart = 0; // primer rechazo del bloqueo actual (0 = no hay bloqueo)
+  let penaltyHits = 0;
+  let lastRejectAt = 0;
+  let lastPenaltyEnd = 0;
+
+  // El rate limit del sitio es un castigo (~10s bloqueado aunque bajes el ritmo), no un ritmo:
+  // durante el bloqueo duplicamos la espera (tope 16s, por si los rechazos alargan el bloqueo),
+  // y con la primera respuesta OK volvemos directo al intervalo del popup.
+  const MAX_MS = 16000;
+  const RETRY_AFTER_MAX_MS = 30000;
+  const REPEAT_WINDOW_MS = 2 * 60 * 1000;
 
   const origFetch = window.fetch.bind(window);
   const origOpen = XMLHttpRequest.prototype.open;
@@ -44,7 +55,10 @@
     if (e.source !== window || e.data?.source !== MSG_SOURCE || e.data.dir !== 'content') return;
     if (e.data.type === 'poll-start') {
       pollTargets = e.data.targets?.length ? new Set(e.data.targets.map(normalizeKey)) : null;
-      pollMs = e.data.intervalMs;
+      baseMs = e.data.intervalMs;
+      pollMs = baseMs;
+      penaltyStart = 0;
+      lastPenaltyEnd = 0;
       startPolling();
     } else if (e.data.type === 'poll-stop') {
       stopPolling();
@@ -79,10 +93,7 @@
 
   async function tick() {
     pollTimer = null;
-    if (Date.now() < backoffUntil) {
-      pollTimer = setTimeout(tick, backoffUntil - Date.now());
-      return;
-    }
+    let delay = pollMs;
     try {
       const res = await origFetch(captured.url, { headers: captured.headers, credentials: 'include' });
       const data = await res.json().catch(() => null);
@@ -93,8 +104,9 @@
         window.location.replace(data.newRedirectUrl);
         return;
       }
-      if (res.status === 429) {
-        backoffUntil = Date.now() + 3000;
+      // El sitio detecta el rate limit por el campo codigo === "429" del cuerpo (no por el status HTTP)
+      if (res.status === 429 || String(data?.codigo) === '429') {
+        delay = Math.max(slowDown(`429 (HTTP ${res.status})`), retryAfterMs(res));
       } else if (!res.ok) {
         // Token vencido u otro error: que el content script vuelva a recargar la página
         polling = false;
@@ -102,6 +114,7 @@
         return;
       } else {
         post('poll-tick');
+        if (penaltyStart) delay = endPenalty();
         const section = (data?.secciones || []).find(
           (s) => s.activa && s.hayDisponibilidad && (!pollTargets || pollTargets.has(normalizeKey(s.codigo)))
         );
@@ -116,8 +129,48 @@
         }
       }
     } catch (err) {
+      // Error de red, o un 429 del gateway sin headers CORS (fetch lo ve como error de red)
       console.warn('[boca-bot] error consultando disponibilidad', err);
+      delay = slowDown('error de red');
     }
-    if (polling) pollTimer = setTimeout(tick, pollMs);
+    if (polling) pollTimer = setTimeout(tick, delay);
+  }
+
+  function slowDown(reason) {
+    const now = Date.now();
+    if (!penaltyStart) {
+      penaltyStart = now;
+      penaltyHits = 0;
+    }
+    penaltyHits++;
+    lastRejectAt = now;
+    pollMs = Math.min(pollMs * 2, MAX_MS);
+    console.log(`[boca-bot] ${reason}: reintento en ${pollMs}ms`);
+    return pollMs;
+  }
+
+  function endPenalty() {
+    const now = Date.now();
+    // El bloqueo terminó en algún momento entre el último rechazo y ahora
+    const min = ((lastRejectAt - penaltyStart) / 1000).toFixed(1);
+    const max = ((now - penaltyStart) / 1000).toFixed(1);
+    console.log(`[boca-bot] bloqueo levantado: duró entre ${min}s y ${max}s (${penaltyHits} consultas rechazadas). Vuelvo a ${baseMs}ms`);
+    if (lastPenaltyEnd && now - lastPenaltyEnd < REPEAT_WINDOW_MS) {
+      console.warn(`[boca-bot] Segundo bloqueo en menos de 2 min: el intervalo de ${baseMs}ms dispara el límite, subilo en el popup`);
+    }
+    lastPenaltyEnd = now;
+    penaltyStart = 0;
+    pollMs = baseMs;
+    return pollMs;
+  }
+
+  // Retry-After puede venir en segundos o como fecha; solo es legible si el servidor lo expone por CORS
+  function retryAfterMs(res) {
+    const v = res.headers.get('Retry-After');
+    if (!v) return 0;
+    const secs = Number(v);
+    if (!Number.isNaN(secs)) return Math.min(secs * 1000, RETRY_AFTER_MAX_MS);
+    const date = Date.parse(v);
+    return Number.isNaN(date) ? 0 : Math.min(Math.max(date - Date.now(), 0), RETRY_AFTER_MAX_MS);
   }
 })();
