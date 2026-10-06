@@ -483,7 +483,7 @@ DASHBOARD_HTML = r"""<!doctype html>
     .error { color: #fecaca; border-color: #7f1d1d; }
     .queue {
       display: grid;
-      grid-template-columns: 46px 1fr auto;
+      grid-template-columns: 46px 1fr auto auto;
       gap: 14px;
       align-items: center;
       margin-bottom: 10px;
@@ -506,6 +506,7 @@ DASHBOARD_HTML = r"""<!doctype html>
       color: #dbeafe;
       cursor: pointer;
     }
+    button { white-space: nowrap; }
     button:hover { background: #1d4ed8; }
     button:disabled { cursor: default; opacity: .45; }
     #closeOthers { border-color: #ef4444; background: #450a0a; color: #fee2e2; margin-top: 8px; }
