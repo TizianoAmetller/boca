@@ -80,7 +80,7 @@ Al abrir las ventanas con el launcher también se inicia un panel local en
 filas por menor tiempo estimado cuando todas entran a la cola y conserva ese
 orden como una captura fija. También permite enfocar la ventana correspondiente.
 Antes de completar la captura descarta ventanas que dejan de informar durante
-15 segundos; una vez capturado el orden, lo conserva hasta la próxima ejecución.
+60 segundos; una vez capturado el orden, lo conserva hasta la próxima ejecución.
 Los datos se mantienen en la computadora local.
 
 Con el orden capturado, el botón **Cerrar todas menos las 3 primeras** cierra el

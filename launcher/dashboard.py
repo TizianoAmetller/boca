@@ -19,7 +19,7 @@ from urllib.parse import parse_qs, urlparse
 
 DASHBOARD_HOST = "127.0.0.1"
 DASHBOARD_PORT = 8765
-STALE_AFTER_SECONDS = 15
+STALE_AFTER_SECONDS = 60
 
 _LOCK = threading.RLock()
 _QUEUES = {}
