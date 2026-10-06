@@ -19,6 +19,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(message.data || {})
+    }).then((response) => response.json()).then((result) => {
+      // Desde el panel se pidió quedarse solo con las mejores filas.
+      if (result && result.close && sender.tab) chrome.windows.remove(sender.tab.windowId);
     }).catch(() => {
       // El panel es opcional: no interrumpir la espera si todavía no arrancó.
     });
