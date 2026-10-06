@@ -30,6 +30,9 @@ _SESSION = {
     "frozen_at": None,
     "order": [],
 }
+# Ventanas que el usuario pidió cerrar desde el panel. Se les avisa en su
+# próximo reporte y ahí se sacan del panel.
+_CLOSING = set()
 
 
 def _parse_integer(value):
@@ -78,6 +81,7 @@ def start_session(expected_count):
 
     with _LOCK:
         _QUEUES.clear()
+        _CLOSING.clear()
         _SESSION.update({
             "expected_count": expected_count,
             "started_at": time.time(),
@@ -176,6 +180,40 @@ def update_queue(payload):
     return True
 
 
+def close_others(keep):
+    """Mark every window after the first `keep` of the frozen order to close."""
+    try:
+        keep = int(keep)
+    except (TypeError, ValueError):
+        return None
+    if keep < 1:
+        return None
+
+    with _LOCK:
+        if not _SESSION["frozen"]:
+            return None
+        # Mismo orden que muestra el panel: las que llegaron después de la
+        # captura van al final.
+        ordered_ids = [client_id for client_id in _SESSION["order"] if client_id in _QUEUES]
+        ordered_ids.extend(client_id for client_id in _QUEUES if client_id not in _SESSION["order"])
+        to_close = ordered_ids[keep:]
+        _CLOSING.update(to_close)
+    return len(to_close)
+
+
+def take_close_request(client_id):
+    """Return True once if this window has to close, and drop it from the panel."""
+    client_id = str(client_id or "").strip()
+    with _LOCK:
+        if client_id not in _CLOSING:
+            return False
+        _CLOSING.discard(client_id)
+        _QUEUES.pop(client_id, None)
+        if client_id in _SESSION["order"]:
+            _SESSION["order"].remove(client_id)
+    return True
+
+
 def queue_snapshot():
     now = time.time()
     with _LOCK:
@@ -216,6 +254,7 @@ def queue_snapshot():
                 "wait_text": display_wait,
                 "wait_minutes": display_wait_minutes,
                 "captured_at": captured_at,
+                "closing": client_id in _CLOSING,
             })
 
         session = {
@@ -365,7 +404,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         parsed = urlparse(self.path)
-        if parsed.path not in ("/api/queue", "/api/session"):
+        if parsed.path not in ("/api/queue", "/api/session", "/api/close-others"):
             _json_response(self, 404, {"error": "not-found"})
             return
 
@@ -382,6 +421,17 @@ class DashboardHandler(BaseHTTPRequestHandler):
             accepted = False
         elif parsed.path == "/api/session":
             accepted = start_session(payload.get("expectedCount"))
+        elif parsed.path == "/api/close-others":
+            closed = close_others(payload.get("keep"))
+            if closed is None:
+                _json_response(self, 409, {"error": "order-not-frozen"})
+            else:
+                _json_response(self, 202, {"accepted": True, "closing": closed})
+            return
+        elif take_close_request(payload.get("clientId")):
+            # La extensión cierra la ventana al leer esta respuesta.
+            _json_response(self, 202, {"accepted": True, "close": True})
+            return
         else:
             accepted = update_queue(payload)
 
@@ -458,6 +508,9 @@ DASHBOARD_HTML = r"""<!doctype html>
     }
     button:hover { background: #1d4ed8; }
     button:disabled { cursor: default; opacity: .45; }
+    #closeOthers { border-color: #ef4444; background: #450a0a; color: #fee2e2; margin-top: 8px; }
+    #closeOthers:hover:not(:disabled) { background: #b91c1c; }
+    .queue.closing { opacity: .4; }
     @media (max-width: 620px) {
       header { align-items: start; flex-direction: column; }
       #state { text-align: left; }
@@ -474,7 +527,10 @@ DASHBOARD_HTML = r"""<!doctype html>
         <h1>Filas de Boca Socios</h1>
         <div class="subtle">Ordenadas por menor tiempo estimado</div>
       </div>
-      <div id="state" class="subtle">Conectando…</div>
+      <div>
+        <div id="state" class="subtle">Conectando…</div>
+        <button id="closeOthers" type="button" disabled>Cerrar todas menos las 3 primeras</button>
+      </div>
     </header>
     <section id="list"></section>
     <p class="subtle">El panel solo organiza la información y enfoca la ventana existente; no modifica la posición en la fila.</p>
@@ -482,6 +538,24 @@ DASHBOARD_HTML = r"""<!doctype html>
   <script>
     const list = document.getElementById('list');
     const state = document.getElementById('state');
+    const closeOthers = document.getElementById('closeOthers');
+    const KEEP = 3;
+    let closableCount = 0;
+
+    closeOthers.addEventListener('click', async () => {
+      if (!confirm('¿Cerrar ' + closableCount + ' ventanas y quedarte solo con las ' + KEEP + ' primeras? No se puede deshacer: las ventanas cerradas pierden su lugar en la fila.')) return;
+      closeOthers.disabled = true;
+      try {
+        const response = await fetch('/api/close-others', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ keep: KEEP })
+        });
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+      } catch (_) {
+        alert('No se pudieron cerrar las ventanas.');
+      }
+    });
 
     function render(queues) {
       list.textContent = '';
@@ -495,7 +569,7 @@ DASHBOARD_HTML = r"""<!doctype html>
 
       queues.forEach((queue, index) => {
         const card = document.createElement('article');
-        card.className = 'queue';
+        card.className = queue.closing ? 'queue closing' : 'queue';
 
         const rank = document.createElement('div');
         rank.className = 'rank';
@@ -554,7 +628,10 @@ DASHBOARD_HTML = r"""<!doctype html>
         if (!response.ok) throw new Error('HTTP ' + response.status);
         const data = await response.json();
         const session = data.session || {};
-        render(data.queues || []);
+        const queues = data.queues || [];
+        render(queues);
+        closableCount = queues.slice(KEEP).filter((queue) => !queue.closing).length;
+        closeOthers.disabled = !session.frozen || closableCount === 0;
         if (session.frozen) {
           state.textContent = 'Orden capturado · ' + (session.captured_count || 0) + ' filas';
         } else if (session.expected_count) {
