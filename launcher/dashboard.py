@@ -26,9 +26,6 @@ _QUEUES = {}
 _SESSION = {
     "expected_count": None,
     "started_at": None,
-    "frozen": False,
-    "frozen_at": None,
-    "order": [],
 }
 
 
@@ -47,6 +44,10 @@ def _parse_wait_minutes(value):
         return None
     match = re.search(r"([0-9]+(?:[.,][0-9]+)?)", text)
     if not match:
+        if re.search(r"\b(una?|one|an?)\s+(hora|hour)", text):
+            return 60
+        if re.search(r"\b(un|one|a)\s+(minuto|minute)", text):
+            return 1
         return None
     try:
         number = float(match.group(1).replace(",", "."))
@@ -81,37 +82,23 @@ def start_session(expected_count):
         _SESSION.update({
             "expected_count": expected_count,
             "started_at": time.time(),
-            "frozen": False,
-            "frozen_at": None,
-            "order": [],
         })
     return True
 
 
-def _initial_sort_key(item):
-    wait = item["initial_wait_minutes"]
-    ahead = item["initial_ahead_number"]
+def _queue_sort_key(item):
+    wait = item["wait_minutes"]
+    ahead = item["ahead_number"]
+    # Una cota como "mas de una hora" no es una estimacion precisa.
+    lower_bound = bool(re.search(r"m[aá]s de|more than|over|\+", item["wait_text"], re.I))
     return (
         wait is None,
+        lower_bound,
         wait if wait is not None else float("inf"),
         ahead is None,
         ahead if ahead is not None else float("inf"),
         item["sequence"],
     )
-
-
-def _freeze_if_ready_locked():
-    if _SESSION["frozen"] or not _SESSION["expected_count"]:
-        return
-
-    captured = [item for item in _QUEUES.values() if item["initial_captured"]]
-    if len(captured) < _SESSION["expected_count"]:
-        return
-
-    captured.sort(key=_initial_sort_key)
-    _SESSION["order"] = [item["client_id"] for item in captured]
-    _SESSION["frozen"] = True
-    _SESSION["frozen_at"] = time.time()
 
 
 def update_queue(payload):
@@ -135,13 +122,6 @@ def update_queue(payload):
             item = {
                 "client_id": client_id,
                 "sequence": len(_QUEUES),
-                "initial_captured": False,
-                "initial_wait_minutes": None,
-                "initial_ahead_number": None,
-                "initial_wait_text": "",
-                "initial_ahead_text": "",
-                "initial_number_text": "",
-                "initial_captured_at": None,
             }
 
         item.update({
@@ -155,75 +135,35 @@ def update_queue(payload):
             "last_seen": now,
         })
 
-        # The first complete Queue-it update is the data used for the final
-        # ranking. Later countdown changes must not move the row.
-        has_queue_data = bool(wait_text or ahead_text or number_text)
-        if not item["initial_captured"] and queue_id and has_queue_data:
-            item.update({
-                "initial_captured": True,
-                "initial_wait_minutes": item["wait_minutes"],
-                "initial_ahead_number": item["ahead_number"],
-                "initial_wait_text": wait_text,
-                "initial_ahead_text": ahead_text,
-                "initial_number_text": number_text,
-                "initial_captured_at": now,
-            })
-
         _QUEUES[client_id] = item
-        if not _SESSION["frozen"]:
-            _prune_locked(now)
-            _freeze_if_ready_locked()
+        _prune_locked(now)
     return True
 
 
 def queue_snapshot():
     now = time.time()
     with _LOCK:
-        if not _SESSION["frozen"]:
-            _prune_locked(now)
-
-        ordered_ids = list(_SESSION["order"])
-        ordered_ids.extend(
-            client_id for client_id in _QUEUES
-            if client_id not in _SESSION["order"]
-        )
-        frozen = _SESSION["frozen"]
-        rows = []
-        for client_id in ordered_ids:
-            item = _QUEUES.get(client_id)
-            if item is None:
-                continue
-
-            if frozen and item["initial_captured"]:
-                display_wait = item["initial_wait_text"]
-                display_ahead = item["initial_ahead_text"]
-                display_number = item["initial_number_text"]
-                display_wait_minutes = item["initial_wait_minutes"]
-                captured_at = item["initial_captured_at"]
-            else:
-                display_wait = item["wait_text"]
-                display_ahead = item["ahead_text"]
-                display_number = item["number_text"]
-                display_wait_minutes = item["wait_minutes"]
-                captured_at = item["last_seen"]
-
-            rows.append({
-                "client_id": item["client_id"],
-                "queue_suffix": item["queue_suffix"],
-                "ahead_text": display_ahead,
-                "ahead_number": _parse_integer(display_ahead),
-                "number_text": display_number,
-                "wait_text": display_wait,
-                "wait_minutes": display_wait_minutes,
-                "captured_at": captured_at,
-            })
-
+        _prune_locked(now)
+        ordered = sorted(_QUEUES.values(), key=_queue_sort_key)
+        rows = [{
+            "client_id": item["client_id"],
+            "queue_suffix": item["queue_suffix"],
+            "ahead_text": item["ahead_text"],
+            "ahead_number": item["ahead_number"],
+            "number_text": item["number_text"],
+            "wait_text": item["wait_text"],
+            "wait_minutes": item["wait_minutes"],
+            "captured_at": item["last_seen"],
+        } for item in ordered]
         session = {
             "expected_count": _SESSION["expected_count"],
-            "received_count": len(_QUEUES),
-            "captured_count": sum(1 for item in _QUEUES.values() if item["initial_captured"]),
-            "frozen": frozen,
-            "frozen_at": _SESSION["frozen_at"],
+            "received_count": len(rows),
+            "captured_count": sum(bool(item["queue_id"] and
+                                      (item["wait_text"] or item["ahead_text"] or item["number_text"]))
+                                  for item in ordered),
+            # Mantener compatibilidad con paginas del panel abiertas antes del cambio.
+            "frozen": False,
+            "frozen_at": None,
         }
     return rows, session
 
@@ -236,6 +176,12 @@ def _focus_windows_windows(suffix):
     from ctypes import wintypes
 
     user32 = ctypes.windll.user32
+    # HWND tiene 64 bits en Windows x64; el retorno por defecto de ctypes es int.
+    user32.GetForegroundWindow.restype = wintypes.HWND
+    user32.SetForegroundWindow.argtypes = [wintypes.HWND]
+    user32.ShowWindow.argtypes = [wintypes.HWND, ctypes.c_int]
+    user32.keybd_event.argtypes = [wintypes.BYTE, wintypes.BYTE,
+                                   wintypes.DWORD, ctypes.c_size_t]
     callback_type = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
     matches = []
 
@@ -260,7 +206,20 @@ def _focus_windows_windows(suffix):
     hwnd = matches[0]
     user32.ShowWindow(hwnd, 9)  # SW_RESTORE
     user32.SetForegroundWindow(hwnd)
-    return True
+    if user32.GetForegroundWindow() != hwnd:
+        # Solo ante un clic explicito: ALT habilita un nuevo pedido de foco.
+        # Siempre liberar la tecla, incluso si la activacion falla.
+        user32.keybd_event(0x12, 0, 0, 0)  # VK_MENU / ALT down
+        try:
+            user32.SetForegroundWindow(hwnd)
+        finally:
+            user32.keybd_event(0x12, 0, 2, 0)  # KEYEVENTF_KEYUP
+    # La activacion de una ventana de otro proceso puede ser asincronica.
+    for _ in range(10):
+        if user32.GetForegroundWindow() == hwnd:
+            return True
+        time.sleep(0.02)
+    return False
 
 
 def _focus_windows_macos(suffix):
@@ -517,8 +476,8 @@ DASHBOARD_HTML = r"""<!doctype html>
         number.textContent = '🎟 Posición: ' + (queue.number_text || 'calculando');
         const age = document.createElement('span');
         age.textContent = queue.captured_at
-          ? 'Capturado: ' + new Date(queue.captured_at * 1000).toLocaleTimeString()
-          : 'Esperando captura';
+          ? 'Actualizado: ' + new Date(queue.captured_at * 1000).toLocaleTimeString()
+          : 'Esperando datos';
         details.append(ahead, number, age);
         info.append(title, details);
 
@@ -535,7 +494,7 @@ DASHBOARD_HTML = r"""<!doctype html>
           try {
             const response = await fetch('/api/focus?client_id=' + encodeURIComponent(queue.client_id), { cache: 'no-store' });
             const result = await response.json();
-            focus.textContent = result.focused ? 'Ventana enfocada' : 'No encontrada';
+            focus.textContent = result.focused ? 'Ventana enfocada' : 'No se pudo enfocar';
             setTimeout(() => { focus.textContent = 'Enfocar ventana'; focus.disabled = !queue.queue_suffix; }, 1600);
           } catch (_) {
             focus.textContent = 'Error';
@@ -555,12 +514,11 @@ DASHBOARD_HTML = r"""<!doctype html>
         const data = await response.json();
         const session = data.session || {};
         render(data.queues || []);
-        if (session.frozen) {
-          state.textContent = 'Orden capturado · ' + (session.captured_count || 0) + ' filas';
-        } else if (session.expected_count) {
-          state.textContent = 'Esperando filas · ' + (session.captured_count || 0) + '/' + session.expected_count;
+        const ready = session.captured_count || 0;
+        if (session.expected_count) {
+          state.textContent = 'Orden en vivo · ' + ready + '/' + session.expected_count + ' filas con datos';
         } else {
-          state.textContent = 'Esperando al launcher';
+          state.textContent = 'Orden en vivo · ' + ready + ' filas con datos';
         }
         state.style.color = '#86efac';
       } catch (_) {
