@@ -31,3 +31,10 @@
 - Do not invent npm/pnpm commands in this repo; there is no JS toolchain configured.
 - When changing automation selectors/flow, validate both message actions used by popup (`start`, `stop`, `getStatus`, `getSectors`) and session restore keys (`bocaBotActive`, `bocaBotSettings`).
 - Keep user-facing popup text in Spanish unless explicitly asked to localize.
+
+## Launcher and live dashboard
+- Dashboard snapshots use current values and sort on every request; stale clients expire after 60 seconds. "Close all but top 3" uses the live order at click time; windows close on their next report. Treat over-an-hour text as a lower bound, with precise estimates ranked first. Read `launcher/test_dashboard.py` before changing ranking or focus.
+- Preserve the default single-account flow (`--setup`, profile-0, `-n`, three windows by default). `--no-dashboard` skips server/session/page startup only; already-running servers remain.
+- Chrome inherits its pipe copies to survive launcher exit; close parent descriptors after configuring each instance. Convert pipe errors into handled failures. Background mode is disabled so closing the last window releases the profile.
+- Windows focus succeeds only if the actual foreground HWND matches. ALT fallback is used only for explicit dashboard focus requests, with key release guaranteed.
+- Run `python -m unittest discover -s launcher -p "test_*.py"`. Manual checks in Queue-it must preserve active queue windows; restart only the dashboard helper to load server changes.

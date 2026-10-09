@@ -203,7 +203,10 @@ class DevToolsPipe:
 
     def call(self, method, timeout=15, **params):
         self.next_id += 1
-        os.write(self.write_fd, json.dumps({"id": self.next_id, "method": method, "params": params}).encode() + b"\0")
+        try:
+            os.write(self.write_fd, json.dumps({"id": self.next_id, "method": method, "params": params}).encode() + b"\0")
+        except OSError as error:
+            raise RuntimeError(f"{method}: pipe de Chrome cerrado ({error})") from error
         result = {}
         reader = threading.Thread(target=self._read_until, args=(self.next_id, result), daemon=True)
         reader.start()
@@ -215,7 +218,11 @@ class DevToolsPipe:
     def _read_until(self, msg_id, result):
         while True:
             while b"\0" not in self.buf:
-                chunk = os.read(self.read_fd, 65536)
+                try:
+                    chunk = os.read(self.read_fd, 65536)
+                except OSError as error:
+                    result["error"] = f"No se pudo leer el pipe de Chrome: {error}"
+                    return
                 if not chunk:
                     result["error"] = "Chrome cerró la conexión"
                     return
@@ -230,7 +237,7 @@ class DevToolsPipe:
 def launch(chrome, profile, url, slot):
     x, y, w, h = slot
     args = [chrome, f"--user-data-dir={profile}", "--no-first-run", "--no-default-browser-check",
-            "--disable-sync", f"--window-size={w},{h}", f"--window-position={x},{y}",
+            "--disable-sync", "--disable-background-mode", f"--window-size={w},{h}", f"--window-position={x},{y}",
             "--remote-debugging-pipe", "--enable-unsafe-extension-debugging", "about:blank"]
     to_chrome_r, to_chrome_w = os.pipe()
     from_chrome_r, from_chrome_w = os.pipe()
@@ -268,6 +275,12 @@ def launch(chrome, profile, url, slot):
             pipe.call("Target.closeTarget", targetId=target_id)
     except RuntimeError as e:
         print(f"  AVISO: no se pudo abrir la página en {profile.name} ({e}). Abrila a mano.")
+    finally:
+        # Chrome conserva sus copias; Python no debe heredarlas a las otras ventanas.
+        os.close(to_chrome_w)
+        os.close(from_chrome_r)
+    if proc.poll() is not None:
+        print(f"  AVISO: Chrome de {profile.name} termino con codigo {proc.returncode}.")
     return proc
 
 
@@ -335,6 +348,7 @@ def main():
                         help=f"cantidad de ventanas (default: {DEFAULT_COUNT})")
     parser.add_argument("--setup", action="store_true", help="abrir profile-0 para loguearse una vez")
     parser.add_argument("--reset", action="store_true", help="borrar todos los perfiles y el login guardado")
+    parser.add_argument("--no-dashboard", action="store_true", help="abrir ventanas sin iniciar ni abrir el panel local")
     parser.add_argument("--dashboard-server", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--dashboard-port", type=int, default=DASHBOARD_PORT, help=argparse.SUPPRESS)
     opts = parser.parse_args()
@@ -368,21 +382,24 @@ def main():
     else:
         print("No hay login guardado (--setup): las ventanas arrancan sin sesión.")
 
-    try:
-        ensure_dashboard_server(opts.dashboard_port)
-        start_dashboard_session(opts.dashboard_port, opts.count)
-        dashboard_url = f"http://{DASHBOARD_HOST}:{opts.dashboard_port}/"
-        webbrowser.open(dashboard_url)
-        print(f"Panel de filas: {dashboard_url}")
-    except (OSError, ValueError, RuntimeError) as error:
-        print(f"AVISO: {error}. Las ventanas se abriran igual.")
-
+    if not opts.no_dashboard:
+        try:
+            ensure_dashboard_server(opts.dashboard_port)
+            start_dashboard_session(opts.dashboard_port, opts.count)
+            dashboard_url = f"http://{DASHBOARD_HOST}:{opts.dashboard_port}/"
+            webbrowser.open(dashboard_url)
+            print(f"Panel de filas: {dashboard_url}")
+        except (OSError, ValueError, RuntimeError) as error:
+            print(f"AVISO: {error}. Las ventanas se abriran igual.")
     slots = tile(opts.count)
     for i in range(opts.count):
         x, y, w, h = slots[i % len(slots)]
         offset = (i // len(slots)) * CASCADE
-        launch(chrome, PROFILES / f"profile-{i}", opts.url, (x + offset, y + offset, w, h))
-        print(f"[{i + 1}/{opts.count}] ventana abierta - profile-{i}")
+        proc = launch(chrome, PROFILES / f"profile-{i}", opts.url, (x + offset, y + offset, w, h))
+        if proc.poll() is None:
+            print(f"[{i + 1}/{opts.count}] ventana abierta - profile-{i}")
+        else:
+            print(f"[{i + 1}/{opts.count}] no se pudo mantener abierta - profile-{i}")
         time.sleep(0.4)
     print("Listo. Podés cerrar esta terminal: las ventanas siguen abiertas.")
 

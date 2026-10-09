@@ -21,3 +21,6 @@ temp/
 # Perfiles de Chrome del launcher: tienen tu token de login. Nunca commitearlos.
 launcher/profiles/
 __pycache__/
+
+# Cache de Python del launcher y sus pruebas
+__pycache__/

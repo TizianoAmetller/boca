@@ -76,22 +76,43 @@ abriste demasiadas.
 ### Panel local de filas
 
 Al abrir las ventanas con el launcher también se inicia un panel local en
-`http://127.0.0.1:8765/`. El panel recibe los datos de cada ventana, ordena las
-filas por menor tiempo estimado cuando todas entran a la cola y conserva ese
-orden como una captura fija. También permite enfocar la ventana correspondiente.
-Antes de completar la captura descarta ventanas que dejan de informar durante
-60 segundos; una vez capturado el orden, lo conserva hasta la próxima ejecución.
-Los datos se mantienen en la computadora local.
+`http://127.0.0.1:8765/`. Cada segundo muestra los últimos datos recibidos y
+reordena las filas por espera estimada; en empate, por personas delante y
+orden de llegada de los datos. No necesita esperar a todas las ventanas.
+Si una baja de «más de una hora» a 15 minutos, su valor y posición cambian.
+Las estimaciones precisas se muestran antes que cotas como «más de una hora»;
+si todas muestran esa cota, no puede distinguir cuál entrará primero.
 
-Con el orden capturado, el botón **Cerrar todas menos las 3 primeras** cierra el
-resto de las ventanas (cada una se cierra en su próximo reporte al panel). No se
-puede deshacer: una ventana cerrada pierde su lugar en la fila.
+Los datos proceden del texto visible de Queue-it, sin peticiones adicionales
+al sitio. La actualización cada segundo del panel no acelera el refresh propio
+de Queue-it. Las ventanas que dejan de informar por 60 segundos salen del panel;
+una ventana oculta o minimizada puede desaparecer si Chrome limita sus timers.
+El panel no cierra ni selecciona ventanas por su cuenta.
+«Enfocar ventana» restaura y pide primer plano para la ventana elegida. En
+Windows comprueba el foco real y avisa si no pudo obtenerlo.
+
+Para omitir el panel, agregá `--no-dashboard`:
+
+```powershell
+python launcher/launch.py -n 10 --no-dashboard
+```
+
+Este flag no cambia el uso de una cuenta, ni detiene un servidor ya iniciado.
+Los datos se mantienen en la computadora local. Para actualizar un panel ya
+abierto hay que reiniciar solo su servidor y recargar su pestaña; no recargar
+las ventanas que están en la fila. Reiniciar el servidor reinicia los datos del
+panel, que volverán a llegar desde las ventanas.
+
+El botón **Cerrar todas menos las 3 primeras** cierra el resto de las ventanas
+según el orden que muestra el panel en ese momento (cada una se cierra en su
+próximo reporte al panel). No se puede deshacer: una ventana cerrada pierde su
+lugar en la fila.
 
 ## Notas
 
 - Los perfiles quedan en `launcher/profiles/` (ignorado por git). Tienen tu login: no los compartas.
 - El launcher sirve para cualquier sitio con Queue-it (por ejemplo Deportick): pasale su URL con `-u`, también en `--setup`.
-- Probado en macOS con Chrome 154. **En Windows todavía no se probó.**
+- Probado en macOS con Chrome 154. En Windows se verificaron carga de extensión, enfoque y cierre del launcher; esto no valida reservas nuevas.
 - Abrir varios lugares en la fila probablemente va contra los términos de servicio del sitio.
 
 ## Problemas comunes
@@ -100,3 +121,16 @@ puede deshacer: una ventana cerrada pierde su lugar en la fila.
 - **El bot no hace nada:** tenés que estar logueado y en una página de Boca Socios. Mirá la consola (F12).
 - **"Estos perfiles siguen abiertos":** cerrá las ventanas del launcher (en Mac: `Cmd+Q`) y volvé a correrlo.
 - **Ventanas deslogueadas:** si Boca Socios no permite varias sesiones a la vez, logueate de nuevo en la ventana que pasó.
+
+## Verificación del launcher y panel
+
+```powershell
+python -m unittest discover -s launcher -p "test_*.py"
+```
+
+Pruebas stdlib: ranking y datos en vivo, cotas de espera, desempates,
+expiración de filas, API local, foco Win32 simulado, pipes y compatibilidad
+con `--setup`/`-n` de una cuenta. Chrome se inicia con
+`--disable-background-mode` para terminar al cerrar su última ventana.
+Las carpetas de perfiles persisten normalmente y no significan que Chrome
+siga abierto. Los errores de pipes se informan sin abortar la tanda.
