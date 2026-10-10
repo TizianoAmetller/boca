@@ -373,7 +373,6 @@ function findAndClickAgregarPlatea(cachedButtons) {
       const btn = p.closest('button');
       if (btn && !btn.disabled) {
         btn.click();
-        btn.click();
         stopMonitoring();
         return true;
       }
@@ -388,7 +387,6 @@ function findAndClickAgregarPlatea(cachedButtons) {
     const text = btn.textContent.trim();
     if (text === '+ AGREGAR PLATEA' || text === 'AGREGAR PLATEA') {
       btn.click();
-      btn.click();
       stopMonitoring();
       return true;
     }
@@ -398,7 +396,6 @@ function findAndClickAgregarPlatea(cachedButtons) {
   for (let btn of allButtons) {
     const textLower = btn.textContent.trim().toLowerCase();
     if (textLower.includes('agregar') && textLower.includes('platea')) {
-      btn.click();
       btn.click();
       stopMonitoring();
       return true;
@@ -423,7 +420,6 @@ function setupModalObserver() {
         const btn = p.closest('button');
         if (btn && !btn.disabled) {
           btn.click();
-          btn.click();
           stopMonitoring();
           return;
         }
@@ -437,7 +433,6 @@ function setupModalObserver() {
       const text = btn.textContent.trim();
       if (text === '+ AGREGAR PLATEA' || text === 'AGREGAR PLATEA') {
         btn.click();
-        btn.click();
         stopMonitoring();
         return;
       }
@@ -446,7 +441,6 @@ function setupModalObserver() {
     for (let btn of allButtons) {
       const text = btn.textContent.trim().toLowerCase();
       if (text.includes('agregar') && text.includes('platea')) {
-        btn.click();
         btn.click();
         stopMonitoring();
         return;

@@ -24,6 +24,8 @@
   const MAX_MS = 16000;
   const RETRY_AFTER_MAX_MS = 30000;
   const REPEAT_WINDOW_MS = 2 * 60 * 1000;
+  // Un 4xx que dura más que esto probablemente no es rate limit (ej. token vencido): recargar
+  const MAX_PENALTY_MS = 60000;
 
   const origFetch = window.fetch.bind(window);
   const origOpen = XMLHttpRequest.prototype.open;
@@ -104,11 +106,18 @@
         window.location.replace(data.newRedirectUrl);
         return;
       }
-      // El sitio detecta el rate limit por el campo codigo === "429" del cuerpo (no por el status HTTP)
-      if (res.status === 429 || String(data?.codigo) === '429') {
-        delay = Math.max(slowDown(`429 (HTTP ${res.status})`), retryAfterMs(res));
+      // El sitio detecta el rate limit por el campo codigo === "429" del cuerpo (no por el status HTTP),
+      // pero en vivo también rechazó con otros 4xx: cualquier 4xx se trata como bloqueo
+      const rateLimited = String(data?.codigo) === '429' || (res.status >= 400 && res.status < 500);
+      if (rateLimited && penaltyStart && Date.now() - penaltyStart > MAX_PENALTY_MS) {
+        // Bloqueo demasiado largo: que el content script recargue la página (token nuevo)
+        polling = false;
+        post('poll-failed', { reason: `http-${res.status}-persistente`, codigo: data?.codigo });
+        return;
+      } else if (rateLimited) {
+        delay = Math.max(slowDown(`rechazo (HTTP ${res.status}, codigo ${data?.codigo ?? '-'})`), retryAfterMs(res));
       } else if (!res.ok) {
-        // Token vencido u otro error: que el content script vuelva a recargar la página
+        // Error del servidor u otro: que el content script vuelva a recargar la página
         polling = false;
         post('poll-failed', { reason: `http-${res.status}`, codigo: data?.codigo });
         return;
